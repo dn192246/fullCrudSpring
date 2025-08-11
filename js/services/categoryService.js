@@ -1,8 +1,8 @@
 // js/services/categoryService.js
-const API_URL = "https://learnapifront-9de8a2348f9a.herokuapp.com/api/category";
+const API_URL = "http://10.10.0.97:8080/api/category";
 
-export async function getCategories(page = 0, size = 5) {
-  const res = await fetch(`${API_URL}/getDataCategory?page=${page}&size=${size}`);
+export async function getCategories() {
+  const res = await fetch(`${API_URL}/getDataCategories`);
   return res.json();
 }
 

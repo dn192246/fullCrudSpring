@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
       usuarioId: 2,
     };
 
-    alert(JSON.stringify(payload) + " ,id:" + id);
+    //alert(JSON.stringify(payload) + " ,id:" + id);
 
     try {
       if (id) {
