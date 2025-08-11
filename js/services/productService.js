@@ -1,5 +1,6 @@
 // js/services/productService.js
-const API_URL = 'http://10.10.0.97:8080/api/products';
+//const API_URL = 'localhost:8080/api/products'; //Local
+const API_URL = 'http://10.10.0.97:8080/api/products'; //Remoto
 
 export async function getProducts(page = 0, size = 10) {
   const res = await fetch(`${API_URL}/getAllProducts?page=${page}&size=${size}`);
