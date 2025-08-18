@@ -9,7 +9,7 @@ import {
 } from "../services/productService.js";
 
 import { getCategories } from "../services/categoryService.js";
-import { uploadImage } from "../services/imageService.js";
+import { uploadImageToFolder } from "../services/imageService.js";
 
 // --- 2. Variables globales para la paginación ---
 let currentPage = 0;
@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const file = imageFileInput?.files?.[0];
     if (file) {
       try {
-        const data = await uploadImage(file); // Subir al backend
+        const data = await uploadImageToFolder(file); // Subir al backend
         finalImageUrl = data.url || "";
       } catch (err) {
         console.error("Error subiendo imagen:", err);
