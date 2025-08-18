@@ -7,19 +7,19 @@ export async function getProducts(page = 0, size = 10) {
   return res.json();
 }
 
-export async function createProduct(payload) {
+export async function createProduct(data) {
   await fetch(`${API_URL}/newProduct`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(data),
   });
 }
 
-export async function updateProduct(id, payload) {
+export async function updateProduct(id, data) {
   await fetch(`${API_URL}/updateProduct/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(data),
   });
 }
 

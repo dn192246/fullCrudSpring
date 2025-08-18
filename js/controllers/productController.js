@@ -69,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const file = imageFileInput?.files?.[0];
     if (file) {
       try {
-        const data = await uploadImageToFolder(file); // Subir al backend
+        const data = await uploadImageToFolder(file, "products"); // Subir al backend
         finalImageUrl = data.url || "";
       } catch (err) {
         console.error("Error subiendo imagen:", err);
