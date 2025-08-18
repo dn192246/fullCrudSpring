@@ -1,7 +1,6 @@
 // js/controllers/productController.js
 
 // --- Importaciones de servicios ---
-// Funciones para consumir la API de productos (listar, crear, actualizar, eliminar)
 import {
   getProducts,
   createProduct,
@@ -9,97 +8,126 @@ import {
   deleteProduct,
 } from "../services/productService.js";
 
-// Función para obtener categorías (para llenar el <select>)
 import { getCategories } from "../services/categoryService.js";
 
-// --- Estado de paginación (página actual y tamaño de página) ---
+// Subida de imágenes
+import { uploadImage } from "../services/imageService.js";
+
+// --- Estado de paginación ---
 let currentPage = 0;
 let currentSize = 10;
 
-// Esperar a que el DOM esté listo para consultar elementos y asignar eventos
 document.addEventListener("DOMContentLoaded", () => {
-  // --- Referencias a elementos del DOM ---
-  const tableBody = document.querySelector("#itemsTable tbody"); // Cuerpo de la tabla de productos
-  const form = document.getElementById("productForm");            // Formulario del modal
-  const modal = new bootstrap.Modal(document.getElementById("itemModal")); // Instancia del modal Bootstrap
-  const modalLabel = document.getElementById("itemModalLabel");   // Título del modal
-  const btnAdd = document.getElementById("btnAdd");               // Botón "Agregar"
-  const select = document.getElementById("productCategory");      // <select> de categorías
+  // --- Referencias DOM ---
+  const tableBody = document.querySelector("#itemsTable tbody");
+  const form = document.getElementById("productForm");
+  const modal = new bootstrap.Modal(document.getElementById("itemModal"));
+  const modalLabel = document.getElementById("itemModalLabel");
+  const btnAdd = document.getElementById("btnAdd");
+  const select = document.getElementById("productCategory");
 
-  // Selector de tamaño de página (control de paginación en UI)
+  // Elementos para imagen
+  const imageFileInput = document.getElementById("productImageFile");  // <input type="file">
+  const imageUrlHidden = document.getElementById("productImageUrl");   // <input type="hidden">
+  const imagePreview = document.getElementById("productImagePreview"); // <img>
+
+  // Vista previa al seleccionar archivo
+  if (imageFileInput && imagePreview) {
+    imageFileInput.addEventListener("change", () => {
+      const file = imageFileInput.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => (imagePreview.src = reader.result);
+        reader.readAsDataURL(file);
+      } else {
+        imagePreview.src = imageUrlHidden?.value || "";
+      }
+    });
+  }
+
+  // Selector de tamaño de página
   const sizeSelector = document.getElementById("pageSize");
   sizeSelector.addEventListener("change", () => {
-    // Al cambiar el tamaño de página, reiniciar a la primera página y recargar
     currentSize = parseInt(sizeSelector.value);
     currentPage = 0;
     cargarProductos();
   });
 
-  // --- Abrir modal en modo "Agregar" ---
+  // Abrir modal (Agregar)
   btnAdd.addEventListener("click", () => {
-    limpiarFormulario();                 // Quita valores previos del formulario
-    modalLabel.textContent = "Agregar Producto"; // Cambia el título del modal
-    modal.show();                        // Muestra el modal
+    limpiarFormulario();
+    modalLabel.textContent = "Agregar Producto";
+    modal.show();
   });
 
-  // --- Envío del formulario (crear o actualizar) ---
+  // Envío del formulario (crear/actualizar)
   form.addEventListener("submit", async (e) => {
-    e.preventDefault();                  // Evita el submit por defecto del navegador
-    let id = form.productId.value;       // ID del producto (si existe, es edición)
+    e.preventDefault();
+    let id = form.productId.value;
 
-    // Objeto con los datos que se enviarán al backend
+    // 1) Subir imagen si hay archivo nuevo
+    let finalImageUrl = imageUrlHidden?.value || "";
+    const file = imageFileInput?.files?.[0];
+    if (file) {
+      try {
+        const data = await uploadImage(file); // { message, url }
+        finalImageUrl = data.url || "";
+      } catch (err) {
+        console.error("Error subiendo imagen:", err);
+        alert("No se pudo subir la imagen. Intenta nuevamente.");
+        return;
+      }
+    }
+
+    // 2) Armar payload (incluye imagen_url)
     const payload = {
       nombre: form.productName.value.trim(),
-      precio: Number(form.productPrice.value),        // Asegurar número
+      precio: Number(form.productPrice.value),
       descripcion: form.productDescription.value.trim(),
-      stock: form.productStock.value.trim(),
+      stock: Number(form.productStock.value),
       fechaIngreso: form.productDate.value,
-      categoriaId: form.productCategory.value,        // ID de categoría seleccionada
-      usuarioId: 2,                                   // Ejemplo de usuario fijo
+      categoriaId: Number(form.productCategory.value),
+      usuarioId: 2, // si aplica en tu API
+      imagen_url: finalImageUrl || null, // <-- campo correcto
     };
-
-    // alert(JSON.stringify(payload) + " ,id:" + id); // Debug opcional
 
     try {
       if (id) {
-        // Si hay ID -> actualizar
         await updateProduct(id, payload);
-        id = null; // Limpia variable local de ID
       } else {
-        // Si no hay ID -> crear nuevo
         await createProduct(payload);
       }
-      modal.hide();         // Cierra el modal después de guardar
-      await cargarProductos(); // Refresca la lista
+      modal.hide();
+      await cargarProductos();
     } catch (err) {
       console.error("Error guardando:", err);
+      alert("Ocurrió un error al guardar el producto.");
     }
   });
 
-  // --- Obtener y renderizar productos desde la API ---
+  // --- Cargar productos y renderizar tabla ---
   async function cargarProductos() {
     try {
-      // Llama a la API con paginación (página y tamaño actuales)
-      let data = await getProducts(currentPage, currentSize);
-      // El backend devuelve un Page<T>: extraer el arreglo en "content"
-      let items = data.content;
+      const data = await getProducts(currentPage, currentSize);
+      const items = data.content || [];
 
-      // Limpia la tabla antes de dibujar
       tableBody.innerHTML = "";
 
-      // Recorre cada producto y crea su fila en la tabla
+      // Render de paginación (una vez por lote)
+      renderPagination(data.number, data.totalPages);
+
       items.forEach((item) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${item.id}</td>
+          <td>${ item.imagen_url ? `<img src="${item.imagen_url}" class="thumb" alt="img">` : `<span class="text-muted">Sin imagen</span>` }</td>
           <td>${item.nombre}</td>
           <td>${item.descripcion}</td>
           <td>${item.stock}</td>
           <td>${item.fechaIngreso}</td>
-          <td>$${item.precio.toFixed(2)}</td>
+          <td>$${Number(item.precio).toFixed(2)}</td>
           <td>
-            <button class="btn btn-sm btn-outline-secondary me-1 edit-btn">
-              <!-- SVG ícono Editar -->
+            <button class="btn btn-sm btn-outline-secondary me-1 edit-btn" title="Editar">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -109,8 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </svg>
             </button>
 
-            <button class="btn btn-sm btn-outline-danger delete-btn">
-              <!-- SVG ícono Eliminar -->
+            <button class="btn btn-sm btn-outline-danger delete-btn" title="Eliminar">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -123,23 +150,16 @@ document.addEventListener("DOMContentLoaded", () => {
           </td>
         `;
 
-        // Evento Editar: carga el producto en el formulario y abre el modal
         tr.querySelector(".edit-btn").addEventListener("click", () =>
           setFormulario(item)
         );
 
-        // Evento Eliminar: confirma y borra el producto por ID
         tr.querySelector(".delete-btn").addEventListener("click", () => {
           if (confirm("¿Eliminar este producto?")) {
             eliminarProducto(item.id);
           }
         });
 
-        // Renderiza/actualiza los controles de paginación
-        // (Nota: aquí se llama dentro del forEach, tal como en tu código original)
-        renderPagination(data.number, data.totalPages);
-
-        // Agrega la fila lista al <tbody>
         tableBody.appendChild(tr);
       });
     } catch (err) {
@@ -147,14 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Llenar el <select> con categorías desde la API ---
+  // --- Llenar <select> categorías ---
   async function cargarCategorias() {
     try {
-      const categories = await getCategories(); // Se espera un array de categorías
-      // Opción placeholder deshabilitada
+      const categories = await getCategories();
       select.innerHTML =
         '<option value="" disabled selected hidden>Seleccione...</option>';
-      // Agregar cada categoría como <option>
       categories.forEach((c) => {
         select.innerHTML += `<option value="${c.idCategoria}" title="${c.descripcion}">${c.nombreCategoria}</option>`;
       });
@@ -163,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Cargar datos del producto en el formulario para edición ---
+  // --- Cargar datos en el formulario (editar) ---
   function setFormulario(item) {
     form.productId.value = item.id;
     form.productName.value = item.nombre;
@@ -172,17 +190,26 @@ document.addEventListener("DOMContentLoaded", () => {
     form.productDescription.value = item.descripcion;
     form.productCategory.value = item.categoriaId;
     form.productDate.value = item.fechaIngreso;
+
+    // Imagen existente
+    if (imageUrlHidden) imageUrlHidden.value = item.imagen_url || "";
+    if (imagePreview) imagePreview.src = item.imagen_url || "";
+    if (imageFileInput) imageFileInput.value = ""; // limpiar selección
+
     modalLabel.textContent = "Editar Producto";
     modal.show();
   }
 
-  // --- Dejar el formulario en blanco (modo "nuevo") ---
+  // --- Limpiar formulario (nuevo) ---
   function limpiarFormulario() {
     form.reset();
-    form.productId.value = ""; // Limpia el ID para que sea "crear"
+    form.productId.value = "";
+    if (imageUrlHidden) imageUrlHidden.value = "";
+    if (imagePreview) imagePreview.src = "";
+    if (imageFileInput) imageFileInput.value = "";
   }
 
-  // --- Eliminar producto por ID y recargar lista ---
+  // --- Eliminar ---
   async function eliminarProducto(id) {
     try {
       await deleteProduct(id);
@@ -192,52 +219,49 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- Crear la barra de paginación (Anterior, números, Siguiente) ---
+  // --- Paginación ---
   function renderPagination(current, totalPages) {
     const pagination = document.getElementById("pagination");
-    pagination.innerHTML = ""; // Limpia la paginación previa
+    pagination.innerHTML = "";
 
-    // Botón "Anterior"
     const prev = document.createElement("li");
     prev.className = `page-item ${current === 0 ? "disabled" : ""}`;
     prev.innerHTML = `<a class="page-link" href="#">Anterior</a>`;
     prev.addEventListener("click", (e) => {
       e.preventDefault();
       if (current > 0) {
-        currentPage = current - 1; // Retrocede una página
+        currentPage = current - 1;
         cargarProductos();
       }
     });
     pagination.appendChild(prev);
 
-    // Números de página (1..totalPages)
     for (let i = 0; i < totalPages; i++) {
       const li = document.createElement("li");
       li.className = `page-item ${i === current ? "active" : ""}`;
       li.innerHTML = `<a class="page-link" href="#">${i + 1}</a>`;
       li.addEventListener("click", (e) => {
         e.preventDefault();
-        currentPage = i; // Salta a la página seleccionada
+        currentPage = i;
         cargarProductos();
       });
       pagination.appendChild(li);
     }
 
-    // Botón "Siguiente"
     const next = document.createElement("li");
     next.className = `page-item ${current >= totalPages - 1 ? "disabled" : ""}`;
     next.innerHTML = `<a class="page-link" href="#">Siguiente</a>`;
     next.addEventListener("click", (e) => {
       e.preventDefault();
       if (current < totalPages - 1) {
-        currentPage = current + 1; // Avanza una página
+        currentPage = current + 1;
         cargarProductos();
       }
     });
     pagination.appendChild(next);
   }
 
-  // --- Arranque inicial: cargar categorías y productos ---
+  // --- Arranque ---
   cargarCategorias();
   cargarProductos();
 });
