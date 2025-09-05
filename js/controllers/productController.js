@@ -108,14 +108,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- 11. Función para cargar productos con paginación ---
   async function cargarProductos() {
     try {
+
+      //Aquí mandamos a traer productos del backend. 
+      // Le indicamos la cantidad de registros y la página actual.
       const data = await getProducts(currentPage, currentSize);
       const items = data.content || [];
 
+      //Limpiamos la tabla antes de llenarla.
       tableBody.innerHTML = "";
       renderPagination(data.number, data.totalPages);
 
       // --- 12. Renderizado de filas en la tabla ---
       items.forEach((item) => {
+        //Por cada registro se crea un <tr> (Table Row - Fila)
         const tr = document.createElement("tr");
 
         // ID
@@ -194,6 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
         tdBtns.appendChild(btnDel);
 
         tr.appendChild(tdBtns);
+
+        //La fila que construimos ahora es anexada al TBODY
         tableBody.appendChild(tr);
       });
     } catch (err) {

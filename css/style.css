@@ -33,7 +33,13 @@ body {
     border: 1px solid #e9ecef;
     border-radius: .5rem;
     background: #fafafa;
-  }
-  .thumb {
-    width: 48px; height: 48px; object-fit: cover; border-radius: .4rem; border: 1px solid #e9ecef;
-  }
+}
+
+.thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: .4rem;
+    border: 1px solid #e9ecef;
+}
+
